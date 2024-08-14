@@ -1,6 +1,7 @@
 # Import python packages
 import streamlit as st
 import requests
+import pandas
 from snowflake.snowpark.functions import col
 
 # Write directly to the app
@@ -16,7 +17,9 @@ st.write("The name on your Smoothie will be:", name_on_smoothie)
 cnx = st.connection("snowflake")
 session = cnx.session()
 my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
-#st.dataframe(data = my_dataframe, use_container_width=True)
+
+# Convert the Snowpark Dataframe to Pandas Dataframe so we can use the LOC function 
+pd_df = my_dataframe.to_pandas()
 
 ingredient_list = st.multiselect(
     "Choose upt to 5 ingredients!"
@@ -28,8 +31,13 @@ if ingredient_list:
     ingredients_string = ''
     for fruits_chosen in ingredient_list:
         ingredients_string += fruits_chosen + ' '
+
+        search_on = pd_df.loc[pd_df['FRUIT_NAME'] == fruits_chosen, 'SEARCH_ON'].iloc[0]
+        st.write('The search value for ' + fruits_chosen + ' is ' + search_on + '.')
+
         st.subheader(fruits_chosen + ' Nutrition Information:')
         fruityvice_response = requests.get("https://fruityvice.com/api/fruit/" + fruits_chosen)
+        st.text()
         fv_df = st.dataframe(data=fruityvice_response.json(), use_container_width=True)
     
     my_insert_stmt = """ insert into smoothies.public.orders(ingredients, name_on_order) values('""" + ingredients_string + """', '""" + name_on_smoothie + """');"""
